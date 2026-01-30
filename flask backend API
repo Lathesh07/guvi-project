@@ -1,0 +1,39 @@
+from flask import Flask, jsonify
+import psycopg2
+from db_config import DB_CONFIG
+
+app = Flask(__name__)
+
+conn = psycopg2.connect(**DB_CONFIG)
+
+@app.route("/kpi/alos")
+def alos():
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT AVG(discharge_date - admission_date)
+        FROM admissions
+        WHERE discharge_date IS NOT NULL
+    """)
+    return jsonify({"ALOS": round(cur.fetchone()[0], 2)})
+
+@app.route("/kpi/bed-occupancy")
+def bed_occupancy():
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*) * 100.0 / 200
+        FROM admissions
+        WHERE discharge_date IS NULL
+    """)
+    return jsonify({"Bed Occupancy %": round(cur.fetchone()[0], 2)})
+
+@app.route("/kpi/readmission")
+def readmission():
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COUNT(*) FILTER (WHERE readmitted=true) * 100.0 / COUNT(*)
+        FROM outcomes
+    """)
+    return jsonify({"Readmission Rate %": round(cur.fetchone()[0], 2)})
+
+if __name__ == "__main__":
+    app.run(debug=True)
